@@ -49,7 +49,7 @@ server <- function(input, output) {
       crime_list=unlist(strsplit(as.character(raw$crime[raw$story_name==chosen])," "))
       culprit_list=unlist(strsplit(as.character(raw$culprit[raw$story_name==chosen])," "))
       proof_list=unlist(strsplit(as.character(raw$proof[raw$story_name==chosen])," "))
-      author_name=raw$your_name[raw$story_name==chosen]
+      author_name=as.character(raw$your_name[raw$story_name==chosen])
       
       my_data<<-NULL
       my_data$statement<<-unlist(strsplit(as.character(raw$story_text[raw$story_name==chosen]),"\n+"))
@@ -110,7 +110,7 @@ server <- function(input, output) {
       my_data <- is_contained()
       solution <- is.solved()
       solved=paste0("You have not yet solved \"",chosen,"\"\n")
-      if(solution[1] %in% crime_list & solution[2] %in% culprit_list & solution[3] %in% proof_list) solved=paste0("You have solved \"",chosen,"\"by", author_name, "!\n")
+      if(solution[1] %in% crime_list & solution[2] %in% culprit_list & solution[3] %in% proof_list) solved=paste0("You have solved \"",chosen,"\" by ", author_name, "!\n")
       print(chosen)
       print(head(x[1]))
       print(head(my_data))
