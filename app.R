@@ -1,8 +1,12 @@
 #
 # A. Cristia 
-# alecristia@gmail.Com
+# alecristia@gmail.com
 
 ## TODO
+# fix bug in confirmation
+# fix bug in N of searches done
+
+## improvements
 # keep stats of people's interactions (search terms etc) #https://shiny.rstudio.com/articles/google-analytics.html
 # add a score board
 
@@ -15,28 +19,43 @@ docloc='https://docs.google.com/spreadsheets/d/e/2PACX-1vT4ELiQ_bZVdfYjO1g1jCbi4
 myfile <- getURL(docloc, ssl.verifyhost=FALSE, ssl.verifypeer=FALSE)
 raw<- read.csv(textConnection(myfile), header=T)
 
+seed=23
+
+n_searches=-1
+
 ui <- shinyUI(
-   
    pageWithSidebar(
-   headerPanel("Criminal Case App"),
-   sidebarPanel(
-      selectInput("chosen", "Choose your story:",
-                  levels(raw$story_name), selected=as.factor(levels(raw$story_name)[1])),
-      textInput("test", "Enter text to grep (RegEx: .*|)",value="zzz"),
-      textInput("crime", "Enter 1 word to identify the crime (fixed)"),
-      textInput("culprit", "Enter 1 word to identify the culprit (fixed)"),
-      textInput("proof", "Enter 1 word to identify the unequivocal proof (fixed)"),
-      submitButton(text = "Submit")
-   ),
-   mainPanel(  
-      tabsetPanel(
-      tabPanel("Instructions", includeMarkdown("instructions.md")) ,
-      tabPanel("Story", verbatimTextOutput("pcdisc"), 
-               tableOutput("Variable"))
-      
-      )
-   )
-))
+      headerPanel("Criminal Case App"),
+      sidebarPanel(
+         # Only show this panel if in the instructions tab
+         conditionalPanel(
+            condition="input.tabselected==1",
+            selectInput("chosen", "Choose your story:",
+                        levels(raw$story_name), selected=as.factor(levels(raw$story_name)[1]))
+         ),
+         # Only show this panel if in the explore tab
+         conditionalPanel(
+            condition="input.tabselected==2",
+            textInput("test", "Enter text to grep (RegEx: .*|)",value="zzz")
+         ),
+         # Only show this panel if in the confirm tab
+         conditionalPanel(
+            condition="input.tabselected==3",
+            textInput("crime", "Enter 1 word to identify the crime (fixed)"),
+            textInput("culprit", "Enter 1 word to identify the culprit (fixed)"),
+            textInput("proof", "Enter 1 word to identify the proof (fixed)")
+         ),
+      ), #end sidebarpanel
+      mainPanel(  
+         tabsetPanel(
+            tabPanel("Instructions", value=1, includeMarkdown("instructions.md")) ,
+            tabPanel("Explore", value=2, verbatimTextOutput("search"),tableOutput("Variable")),
+            tabPanel("Confirm", value=3, verbatimTextOutput("pcdisc")), 
+            id = "tabselected"
+         )
+      )#end main panel
+   )#end page with side bar
+)#end shinyUI
 
 
 server <- function(input, output) {
@@ -44,7 +63,7 @@ server <- function(input, output) {
    new_chosen<- reactive({
       chosen<-input$chosen
       
-     # print(chosen)
+      # print(chosen)
       
       crime_list=unlist(strsplit(as.character(raw$crime[raw$story_name==chosen])," "))
       culprit_list=unlist(strsplit(as.character(raw$culprit[raw$story_name==chosen])," "))
@@ -64,10 +83,11 @@ server <- function(input, output) {
    })
    
    is_contained <- reactive({
+      
       test <- input$test
       
       temp=grepl(test, my_data$statement, ignore.case = TRUE, perl=TRUE)
-
+      
       if(sum(temp)>5){
          matches=cbind(temp,1:length(temp))
          selected=tail(matches[order(temp),2],5)
@@ -98,6 +118,12 @@ server <- function(input, output) {
       my_data[my_data$show==1,c("nline","statement","new")]
    })
    
+   output$search <- renderText({ 
+      my_data <- is_contained()
+      n_searches<<-n_searches+1
+      paste("You have done ",n_searches," searches and \n discovered",round(sum(my_data$discovered)/dim(my_data)[1]*100),"% of the statement")
+   })
+   
    output$pcdisc <- renderText({ 
       x <- new_chosen()
       my_data=x[1]
@@ -109,12 +135,10 @@ server <- function(input, output) {
       
       my_data <- is_contained()
       solution <- is.solved()
-      solved=paste0("You have not yet solved \"",chosen,"\"\n")
-      if(solution[1] %in% crime_list & solution[2] %in% culprit_list & solution[3] %in% proof_list) solved=paste0("You have solved \"",chosen,"\" by ", author_name, "!\n")
-      print(chosen)
-      print(head(x[1]))
-      print(head(my_data))
-      paste(solved,"\nYou have discovered",round(sum(my_data$discovered)/dim(my_data)[1]*100),"% of the statement")
+      paste0("You have guessed ",round(sum(solution[1] %in% crime_list , solution[2] %in% culprit_list , solution[3] %in% proof_list)/3*100), "% of \"",chosen,"\" by ", author_name, "!\n")
+     # print(chosen)
+      #print(head(x[1]))
+      #print(head(my_data))
    })
    
 }
