@@ -7,7 +7,7 @@
 # fix bug in N of searches done ##done
 
 ## improvements
-# keep stats of people's interactions (search terms etc) #https://shiny.rstudio.com/articles/google-analytics.html ## done, insert own .js script in 'google-analytics.html'
+# keep stats of people's interactions (search terms etc) #https://shiny.rstudio.com/articles/google-analytics.html ## done, insert own <UA-xxx-1> in 'google-analytics.js'.
 # add a score board ## not part of assignment
 
 library(shiny)
@@ -24,7 +24,8 @@ seed=23
 n_searches=0
 
 ui <- fluidPage(
-  tags$head(includeHTML(("google-analytics.html"))),
+  #tags$head(includeHTML(("google-analytics.html"))),
+  tags$head(includeScript("google-analytics.js")),
   titlePanel("Criminal Case App"),
   sidebarLayout(
       sidebarPanel(
@@ -38,14 +39,15 @@ ui <- fluidPage(
          conditionalPanel(
             condition="input.tabselected==2",
             textInput("test", "Enter text to grep (RegEx: .*|)",value="zzz"),
-            actionButton("go","Go!")
+            actionButton("goSearch","Go!")
          ),
          # Only show this panel if in the confirm tab
          conditionalPanel(
             condition="input.tabselected==3",
             textInput("crime", "Enter 1 word to identify the crime (fixed)"),
             textInput("culprit", "Enter 1 word to identify the culprit (fixed)"),
-            textInput("proof", "Enter 1 word to identify the proof (fixed)")
+            textInput("proof", "Enter 1 word to identify the proof (fixed)"),
+            actionButton("goGuess","Go!")
          )
       ), #end sidebarPanel
       mainPanel(  
@@ -112,8 +114,8 @@ server <- function(input, output) {
       return(c(crime,culprit,proof))
    })
    
-   reTable <- eventReactive(
-     input$go,{
+   reTableSearch <- eventReactive(
+     input$goSearch,{
        x=new_chosen()
        my_data=x[1]
        chosen=x[2]
@@ -122,35 +124,40 @@ server <- function(input, output) {
      })
    
    output$Variable = renderTable({
-      reTable()
+      reTableSearch()
    })
    
-   reText <- eventReactive(
-     input$go,{
+   reTextSearch <- eventReactive(
+     input$goSearch,{
        my_data <- is_contained()
        n_searches<<-n_searches+1
        paste("You have done ",n_searches," searches and \n discovered",round(sum(my_data$discovered)/dim(my_data)[1]*100),"% of the statement")
      })
    
    output$search <- renderText({ 
-     reText()
+     reTextSearch()
    })
    
+   reTextGuess <- eventReactive(
+     input$goGuess,{
+       x <- new_chosen()
+       my_data=x[1]
+       chosen=x[2]
+       crime_list=x[3]
+       culprit_list=x[4]
+       proof_list=x[5]
+       author_name=x[6]
+       
+       my_data <- is_contained()
+       solution <- is.solved()
+       paste0("You have guessed ",round(sum(solution[1] %in% crime_list , solution[2] %in% culprit_list , solution[3] %in% proof_list)/3*100), "% of \"",chosen,"\" by ", author_name, "!\n")
+       # print(chosen)
+       #print(head(x[1]))
+       #print(head(my_data)) 
+     })
+   
    output$pcdisc <- renderText({ 
-      x <- new_chosen()
-      my_data=x[1]
-      chosen=x[2]
-      crime_list=x[3]
-      culprit_list=x[4]
-      proof_list=x[5]
-      author_name=x[6]
-      
-      my_data <- is_contained()
-      solution <- is.solved()
-      paste0("You have guessed ",round(sum(solution[1] %in% crime_list , solution[2] %in% culprit_list , solution[3] %in% proof_list)/3*100), "% of \"",chosen,"\" by ", author_name, "!\n")
-     # print(chosen)
-      #print(head(x[1]))
-      #print(head(my_data))
+     reTextGuess()
    })
    
 }
