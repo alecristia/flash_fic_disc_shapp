@@ -33,7 +33,8 @@ ui <- fluidPage(
          conditionalPanel(
             condition="input.tabselected==1",
             selectInput("chosen", "Choose your story:",
-                        levels(raw$story_name), selected=as.factor(levels(raw$story_name)[1]))
+                        choices = raw$story_name, selected=raw$story_name[1]),
+            actionButton("goStory","Go!")
          ),
          # Only show this panel if in the explore tab
          conditionalPanel(
@@ -50,7 +51,8 @@ ui <- fluidPage(
             actionButton("goGuess","Go!")
          )
       ), #end sidebarPanel
-      mainPanel(  
+      mainPanel(
+        verbatimTextOutput("chosen"),
          tabsetPanel(
             tabPanel("Instructions", value=1, includeMarkdown("instructions.md")) ,
             tabPanel("Explore", value=2, verbatimTextOutput("search"),tableOutput("Variable")),
@@ -64,14 +66,21 @@ ui <- fluidPage(
 
 server <- function(input, output) {
    
+  chosenStory <- eventReactive(
+    input$goStory,{
+      chosen<-input$chosen
+      paste0("You have chosen: ",chosen,".")
+    }) 
+  
+  output$chosen <- renderText({
+    chosenStory()
+  })
+   
    new_chosen<- reactive({
       chosen<-input$chosen
-      
-      # print(chosen)
-      
-      crime_list=unlist(tolower(as.character(raw$crime[raw$story_name==chosen])))
-      culprit_list=unlist(tolower(as.character(raw$culprit[raw$story_name==chosen])))
-      proof_list=unlist(tolower(as.character(raw$proof[raw$story_name==chosen])))
+      crime_list=unlist(strsplit(tolower(as.character(raw$crime[raw$story_name==chosen]))," "))
+      culprit_list=unlist(strsplit(tolower(as.character(raw$culprit[raw$story_name==chosen]))," "))
+      proof_list=unlist(strsplit(tolower(as.character(raw$proof[raw$story_name==chosen]))," "))
       author_name=as.character(raw$your_name[raw$story_name==chosen])
       
       my_data<<-NULL
@@ -108,10 +117,10 @@ server <- function(input, output) {
    })
    
    is.solved<-reactive({
-      crime <- tolower(input$crime)
-      culprit <- tolower(input$culprit)
-      proof <- tolower(input$proof)
-      return(c(crime,culprit,proof))
+     crime <- ifelse(length(unlist(strsplit(tolower(input$crime)," ")))>0,unlist(strsplit(tolower(input$crime)," "))," ")
+     culprit <- ifelse(length(unlist(strsplit(tolower(input$culprit)," ")))>0,unlist(strsplit(tolower(input$culprit)," "))," ")
+     proof <- ifelse(length(unlist(strsplit(tolower(input$proof)," ")))>0,unlist(strsplit(tolower(input$proof)," "))," ")
+     return(c(crime,culprit,proof))
    })
    
    reTableSearch <- eventReactive(
@@ -143,14 +152,18 @@ server <- function(input, output) {
        x <- new_chosen()
        my_data=x[1]
        chosen=x[2]
-       crime_list=x[3]
-       culprit_list=x[4]
-       proof_list=x[5]
+       crime_list=unlist(x[3])
+       culprit_list=unlist(x[4])
+       proof_list=unlist(x[5])
        author_name=x[6]
        
        my_data <- is_contained()
        solution <- is.solved()
-       paste0("You have guessed ",round(sum(solution[1] %in% crime_list , solution[2] %in% culprit_list , solution[3] %in% proof_list)/3*100), "% of \"",chosen,"\" by ", author_name, "!\n")
+       solution_1 = solution[1] %in% crime_list 
+       solution_2 = solution[2] %in% culprit_list
+       solution_3 = solution[3] %in% proof_list
+       sumSol = length(solution_1) + length(solution_2)+ length(solution_3)
+       paste0("You have guessed ",round(sum(solution_1,solution_2,solution_3)/sumSol*100), "% of \"",chosen,"\" by ", author_name, "!\n")
        # print(chosen)
        #print(head(x[1]))
        #print(head(my_data)) 

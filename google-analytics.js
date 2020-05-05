@@ -17,6 +17,9 @@ ga('send', 'pageview');
 
 // Event Tracking Code
 $(document).on('shiny:inputchanged', function(event) {
+  if(event.name == 'goStory'){
+    ga('send', 'event', 'instructionsTab', 'Number of stories');
+  }
   if(event.name == 'goSearch'){
     ga('send', 'event', 'exploreTab', 'Number of searches');
   }
